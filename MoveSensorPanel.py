@@ -20,15 +20,217 @@ import base64
 from io import BytesIO
 import pywinstyles
 
+"""--==VARIAVEIS==--"""
+
 CONFIG_FILE = "config.json" # Caminho do arquivo de configuração
 stop_thread = False  # Flag para parar o thread de monitoramento
 WINDOW_CLASS = None
 TARGET_MONITOR_KEY = None
-refresh_rate = None
+REFRESH_RATE = None
 monitor_event = threading.Event()
+correction_thread = None
+
 # Ícone da bandeja
 ICON_BASE64 = "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"
+icon = None
 
+
+"""--==Funções==--"""
+
+# Gestão de Configurações
+def manage_config(action="load", settings=None):
+    global WINDOW_CLASS, TARGET_MONITOR_KEY, REFRESH_RATE, start_windows
+
+    if action == "load":
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                WINDOW_CLASS = config.get("window_class", "")
+                TARGET_MONITOR_KEY = config.get("target_monitor_key", "")
+                REFRESH_RATE = config.get("refresh_rate", 3)
+                start_windows = config.get("start_windows", False)
+                return config
+        return {}
+
+    elif action == "save" and settings:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(settings, f, indent=4)
+
+    elif action == "update":
+        WINDOW_CLASS = class_name_entry.get()
+        monitor_display = monitor_combobox.get()
+        TARGET_MONITOR_KEY = monitor_mapping.get(monitor_display, monitor_display)
+        REFRESH_RATE = int(refresh_rate_entry.get() or 3)
+        start_windows = start_with_windows_var.get()
+        print(f"Nome da Classe: {WINDOW_CLASS}, Monitor: {TARGET_MONITOR_KEY}, Refresh Rate: {REFRESH_RATE} segs")
+        
+        settings = {
+            "window_class": WINDOW_CLASS,
+            "target_monitor_key": TARGET_MONITOR_KEY,
+            "refresh_rate": REFRESH_RATE,
+            "start_windows": start_windows
+        }
+        manage_config("save", settings)
+
+#Função Para iniciar com o Windows
+def set_windows_startup(task_name="MoveSensorPanel", enable=True):
+    """
+    Ativa ou desativa a inicialização automática do programa com o Windows.
+
+    :param task_name: Nome da tarefa no Agendador do Windows.
+    :param enable: Se True, cria a tarefa; se False, remove a tarefa.
+    """
+    if enable:
+        exe_path = sys.executable  # Caminho do executável (.exe ou .py)
+        command = (
+            f'schtasks /create /tn "{task_name}" /tr "{exe_path}" '
+            f'/sc ONLOGON /RL HIGHEST /F /IT'
+        )
+        msg_success = f"The program will be started automatically with Windows."
+        msg_error = f"Error creating the task '{task_name}'."
+    else:
+        command = f'schtasks /delete /tn "{task_name}" /F'
+        msg_success = f"The program will no longer be started automatically with Windows."
+        msg_error = f"Error removing the task '{task_name}'."
+
+    try:
+        subprocess.run(command, shell=True, check=True)
+        print(msg_success)
+        messagebox.showinfo("Configuração", msg_success)
+    except subprocess.CalledProcessError as e:
+        print(msg_error, e)
+        messagebox.showerror("Erro", msg_error)
+
+# Função para obter monitores disponíveis       
+def get_monitors_info():
+    monitors = {}
+
+    def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
+        try:
+            monitor_info = win32api.GetMonitorInfo(hMonitor)
+            device = win32api.EnumDisplayDevices(monitor_info["Device"], 0)
+            key = device.DeviceKey.split("\\")[-1] if device.DeviceKey else "Desconhecido"
+            device_name = device.DeviceName.split("\\")[-2] if device.DeviceName else "Desconhecido"
+            monitors[key] = {
+                "X": monitor_info["Monitor"][0],
+                "Y": monitor_info["Monitor"][1],
+                "Width": monitor_info["Monitor"][2] - monitor_info["Monitor"][0],
+                "Height": monitor_info["Monitor"][3] - monitor_info["Monitor"][1],
+                "DeviceName": device_name
+            }
+        except Exception as e:
+            print(f"Erro ao obter monitores: {e}")
+        return True
+
+    MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.c_ulong)
+    ctypes.windll.user32.EnumDisplayMonitors(0, 0, MonitorEnumProc(callback), 0)
+
+    # Criar lista de exibição e mapeamento
+    display_list = []
+    mapping = {}
+    for key, info in monitors.items():
+        monitor_name = info.get("DeviceName", "Desconhecido")
+        display_str = f"{key} - {monitor_name} ({info['Width']}x{info['Height']})"
+        display_list.append(display_str)
+        mapping[display_str] = key
+
+    return monitors, display_list, mapping
+
+# Função para verificar se a janela está fora do monitor
+def check_window(class_name, target_monitor):
+    def enum_callback(hwnd, lparam):
+        if win32gui.IsWindowVisible(hwnd) and win32gui.GetClassName(hwnd) == class_name:
+            x, y = win32gui.GetWindowRect(hwnd)[:2] # Recolhe coordenadas X,Y da janela
+            
+            #Verificar se está fora do monitor
+            if x != target_monitor["X"] or y != target_monitor["Y"]:
+                lparam.append(hwnd)
+        return True
+
+    hwnds = []
+    win32gui.EnumWindows(enum_callback, hwnds)
+    return hwnds[0] if hwnds else None # Retorna janela se estiver fora do monitor, senão ignora "None"
+
+# Função para mover a janela
+def move_window(hwnd, target_monitor):    
+    if hwnd:
+        target_x, target_y = target_monitor["X"], target_monitor["Y"]
+        rect = win32gui.GetWindowRect(hwnd)
+        width = rect[2] - rect[0]  # Largura atual
+        height = rect[3] - rect[1]  # Altura atual
+        
+        print("Movendo a janela para o monitor alvo...", target_monitor)
+        win32gui.MoveWindow(hwnd, target_x, target_y, width, height, True)
+
+#Configura um hook de mensagens do Windows para capturar eventos
+class WindowMonitorHook:
+    def __init__(self):
+        self.hwnd = None
+
+    def wnd_proc(self, hwnd, msg, wparam, lparam):
+        if msg == win32con.WM_DISPLAYCHANGE:
+            print("[Monitoramento] Mudança na configuração dos monitores detectada!")
+            monitor_event.set()  # Dispara evento para checar a janela 
+            
+        elif msg == win32con.WM_POWERBROADCAST:
+            if wparam == win32con.PBT_APMRESUMEAUTOMATIC:
+                print("[Monitoramento] Sistema retornou da suspensão!")
+                monitor_event.set()  # Dispara evento para checar a janela 
+            
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+
+    def register_window(self):
+        class_name = "MonitorEventListener"
+        wnd_class = win32gui.WNDCLASS()
+        wnd_class.lpfnWndProc = self.wnd_proc
+        wnd_class.lpszClassName = class_name
+        wnd_class.hInstance = win32api.GetModuleHandle(None)
+        class_atom = win32gui.RegisterClass(wnd_class)
+        self.hwnd = win32gui.CreateWindow(class_atom, "MonitorEventWindow", 0, 0, 0, 0, 0, 0, 0, wnd_class.hInstance, None)
+        win32gui.PumpMessages()  # Mantém a escuta ativa
+
+def monitor_and_correct_window(class_name, target_monitor):
+    while not stop_thread:
+        monitor_event.wait()  # Espera uma mudança nos monitores ou retorno da suspensão
+        monitor_event.clear()  # Reseta o evento para aguardar novas mudanças
+        
+        monitors, _, _ = get_monitors_info() # Actualiza os monitores disponiveis
+        target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
+        
+        if target_monitor is None:
+            print(f"Monitor alvo '{TARGET_MONITOR_KEY}' não encontrado ou indisponível.")
+            available_monitors = [monitor for monitor in monitors.values()]
+            target_monitor = available_monitors[0]
+            if available_monitors:
+                target_monitor = available_monitors[0]  # Seleciona o primeiro monitor disponível
+                print(f"Movendo para o monitor disponível: {target_monitor}")
+            else:
+                print("Nenhum monitor disponível encontrado!")
+                continue  # Continua aguardando novos eventos
+            
+        hwnd = check_window(class_name, target_monitor)
+        if hwnd:
+            time.sleep(REFRESH_RATE)
+            move_window(hwnd, target_monitor)
+        else:
+            print("Janela já se enccontra no Monitor alvo")
+
+def stop_monitoring_thread():
+    global stop_thread
+    stop_thread = True  # Configura a flag de parada
+    correction_thread.join()  # Espera a thread ser finalizada corretamente)
+    print("Thread de monitoramento parada.")
+
+def start_monitoring(class_name, target_monitor):
+    global correction_thread
+    # Inicia a thread que corrige a posição da janela sempre que necessário
+    correction_thread = threading.Thread(target=monitor_and_correct_window, args=(class_name, target_monitor), daemon=True)
+    correction_thread.start()
+    print("Thread de monitoramento iniciada.")
+    monitor_event.set()
+
+
+"""--==Funções GUI==--"""
 
 def create_icon(size=64, use_custom=True):
     """
@@ -72,105 +274,7 @@ def create_icon(size=64, use_custom=True):
 
     return img
 
-#Função Para iniciar com o Windows
-def set_windows_startup(task_name="MoveSensorPanel", enable=True):
-    """
-    Ativa ou desativa a inicialização automática do programa com o Windows.
-
-    :param task_name: Nome da tarefa no Agendador do Windows.
-    :param enable: Se True, cria a tarefa; se False, remove a tarefa.
-    """
-    if enable:
-        exe_path = sys.executable  # Caminho do executável (.exe ou .py)
-        command = (
-            f'schtasks /create /tn "{task_name}" /tr "{exe_path}" '
-            f'/sc ONLOGON /RL HIGHEST /F /IT'
-        )
-        msg_success = f"The program will be started automatically with Windows."
-        msg_error = f"Error creating the task '{task_name}'."
-    else:
-        command = f'schtasks /delete /tn "{task_name}" /F'
-        msg_success = f"The program will no longer be started automatically with Windows."
-        msg_error = f"Error removing the task '{task_name}'."
-
-    try:
-        subprocess.run(command, shell=True, check=True)
-        print(msg_success)
-        messagebox.showinfo("Configuração", msg_success)
-    except subprocess.CalledProcessError as e:
-        print(msg_error, e)
-        messagebox.showerror("Erro", msg_error)
-
-# Função para carregar e salvar configurações
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
-    return {}
-
-def save_config():
-    config = {
-        "window_class": WINDOW_CLASS,
-        "target_monitor_key": TARGET_MONITOR_KEY,
-        "refresh_rate": refresh_rate,
-        "start_windows": start_windows
-    }
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=4)
-
-def save_settings():
-    global WINDOW_CLASS, TARGET_MONITOR_KEY, refresh_rate, start_windows
-    WINDOW_CLASS = class_name_entry.get()
-    monitor_display = monitor_combobox.get()
-    TARGET_MONITOR_KEY = monitor_mapping.get(monitor_display, monitor_display)
-    refresh_rate = int(refresh_rate_entry.get() or 3)
-    start_windows = start_with_windows_var.get()
-    print(f"Nome da Classe: {WINDOW_CLASS}, Monitor: {TARGET_MONITOR_KEY}, Refresh Rate: {refresh_rate} segs")
-    save_config()
-    start_thread()
-
-# Função para encerrar o programa
-def quit_program(icon, item):
-    global stop_thread
-    stop_thread = True  # Sinaliza para a thread parar
-    print("Encerrando o programa...")
-
-    # Aguarde um pouco para garantir que as threads terminem
-    """for thread in threading.enumerate():
-        if thread is not threading.main_thread():  
-            thread.join(timeout=2)  # Dá tempo para encerrar com segurança
-    """
-    icon.stop()  # Para o ícone da bandeja corretamente
-    print("Programa encerrado.")
-
-# Função chamada ao fechar a janela de configurações
-def on_closing():
-    save_settings()
-    root.destroy()    
-
-# Função para criar o ícone da bandeja
-def create_tray_icon():
-    global icon
-    icon_image = create_icon()
-
-    menu = Menu(MenuItem('Configurações', open_settings_gui), MenuItem('Sair', quit_program))
-    icon = Icon("WindowMonitor", icon_image, menu=menu)
-        
-    config = load_config()
-    
-    if config:
-        print("Configuração encontrada! Iniciando monitoramento...")
-        global WINDOW_CLASS, TARGET_MONITOR_KEY, refresh_rate
-        WINDOW_CLASS = config.get("window_class", "TForm_HWMonitoringSensorPanel")
-        TARGET_MONITOR_KEY = config.get("target_monitor_key", "Nenhum Monitor")
-        refresh_rate = config.get("refresh_rate", 3)
-        start_thread()
-    else:
-        print("Nenhuma configuração encontrada. Abrindo configurações...")
-        open_settings_gui()
-    icon.run()
-
-# Função para abrir a GUI de Configurações
+# Dark Theme para Titulo da janela
 def apply_theme_to_titlebar(root):
     version = sys.getwindowsversion()
 
@@ -183,11 +287,12 @@ def apply_theme_to_titlebar(root):
         # A hacky way to update the title bar's color on Windows 10 (it doesn't update instantly like on Windows 11)
         root.wm_attributes("-alpha", 0.99)
         root.wm_attributes("-alpha", 1)
-        
-def open_settings_gui():
+
+# Janela de Settings        
+def settings_gui():
     global class_name_entry, monitor_combobox, refresh_rate_entry, monitor_mapping, start_with_windows_var, root
     
-    config = load_config()
+    config = manage_config("load")
 
     root = tk.Tk()
     apply_theme_to_titlebar(root)
@@ -205,7 +310,7 @@ def open_settings_gui():
     class_name_entry.grid(row=0, column=1, padx=0, pady=5, sticky="ew")
 
     monitor_label = ttk.Label(root, text="Choose Monitor:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
-    monitors_display, monitor_mapping = get_available_monitors()
+    _, monitors_display, monitor_mapping = get_monitors_info()
     saved_monitor_key = config.get("target_monitor_key", None) # Verifica se há uma configuração salva para o monitor
     monitor_combobox = ttk.Combobox(root, values=monitors_display, width=30)
     # Se houver monitor salvo, mostra o nome do monitor
@@ -242,118 +347,67 @@ def open_settings_gui():
     root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
-# Função para obter monitores disponíveis
-def get_all_monitors():
-    monitors = {}
+# Função para criar o ícone da bandeja
+def create_tray_icon():
+    global icon
+    icon_image = create_icon()
 
-    def callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
-        try:
-            monitor_info = win32api.GetMonitorInfo(hMonitor)
-            device = win32api.EnumDisplayDevices(monitor_info["Device"], 0)
-            key = device.DeviceKey.split("\\")[-1] if device.DeviceKey else "Desconhecido"
-            device_name = device.DeviceName.split("\\")[-2] if device.DeviceName else "Desconhecido"
-            monitors[key] = {
-                "X": monitor_info["Monitor"][0],
-                "Y": monitor_info["Monitor"][1],
-                "Width": monitor_info["Monitor"][2] - monitor_info["Monitor"][0],
-                "Height": monitor_info["Monitor"][3] - monitor_info["Monitor"][1],
-                "DeviceName": device_name
-            }
-        except Exception as e:
-            print(f"Erro ao obter monitores: {e}")
-        return True
-
-    MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.c_ulong)
-    ctypes.windll.user32.EnumDisplayMonitors(0, 0, MonitorEnumProc(callback), 0)
-    return monitors
-
-def get_available_monitors():
-    monitors = get_all_monitors()
-    display_list = []
-    mapping = {}
-    for key, info in monitors.items():
-        monitor_name = info.get("DeviceName", "Desconhecido")
-        display_str = f"{key} - {monitor_name} ({info['Width']}x{info['Height']})"
-        display_list.append(display_str)
-        mapping[display_str] = key
-    return display_list, mapping
-
-# Função para monitorar e mover a janela
-def start_monitoring():
-    global stop_thread
-    stop_thread = False
-
-    while not stop_thread:
-        hwnd = find_window_by_class(WINDOW_CLASS)
-        if hwnd:
-            monitor_info = get_all_monitors().get(TARGET_MONITOR_KEY)
-            if monitor_info:
-                x, y = win32gui.GetWindowRect(hwnd)[:2]
-                target_x, target_y = monitor_info["X"], monitor_info["Y"]
-                if x != target_x or y != target_y:
-                    print("Movendo a janela para o monitor alvo...")
-                    win32gui.MoveWindow(hwnd, target_x, target_y, monitor_info["Width"], monitor_info["Height"], True)
-
-        # Aguarda o tempo de refresh ou um evento de mudança de monitor
-        if not monitor_event.wait(refresh_rate):
-            continue
+    menu = Menu(MenuItem('Settings', settings_gui), MenuItem('Close', quit_program))
+    icon = Icon("WindowMonitor", icon_image, menu=menu)
+        
+    config = manage_config("load")
+    
+    if config:
+        print("Configuração encontrada! Iniciando monitoramento...")
+        monitors, _, _ = get_monitors_info()
+        target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
+        if target_monitor is None:
+            print(f"Erro: Monitor alvo '{TARGET_MONITOR_KEY}' não encontrado!")
         else:
-            monitor_event.clear()  # Reseta o evento para futuras mudanças
-            stop_thread = True
-            print("[Monitoramento] Reiniciando devido à mudança nos monitores...")
-            time.sleep(refresh_rate)  # Atraso para evitar erro de dispositivos não disponíveis
-            start_thread()
+            print("Movendo janela para o monitor:")
+            start_monitoring(WINDOW_CLASS, target_monitor)
+    else:
+        print("Nenhuma configuração encontrada. Abrindo configurações...")
+        settings_gui()
+    icon.run()
 
-def start_thread():
-    threading.Thread(target=start_monitoring, daemon=True).start()
-
-# Função para encontrar a janela pela classe
-def find_window_by_class(class_name):
-    def enum_callback(hwnd, lparam):
-        if win32gui.IsWindowVisible(hwnd) and win32gui.GetClassName(hwnd) == class_name:
-            lparam.append(hwnd)
-        return True
-
-    hwnds = []
-    win32gui.EnumWindows(enum_callback, hwnds)
-    return hwnds[0] if hwnds else None
-
-# Função para detectar mudanças na configuração dos monitores
-def monitor_display_changes():
-    """
-    Configura um hook de mensagens do Windows para capturar eventos de mudança de monitores.
-    Sempre que o evento `WM_DISPLAYCHANGE` for detectado, ele reinicia a thread de monitoramento.
-    """
+# Função para encerrar o programa
+def quit_program(icon, item):
     global stop_thread
+    stop_thread = True  # Sinaliza para a thread parar
+    print("Encerrando o programa...")
+    icon.stop()  # Para o ícone da bandeja corretamente
+    print("Programa encerrado.")
 
-    class WindowMonitorHook:
-        def __init__(self):
-            self.hwnd = None
+# Função chamada ao fechar a janela de configurações
+def on_closing():
+    global stop_thread
+    
+    manage_config("update")
+    config = manage_config("load")
+    monitors, _, _ = get_monitors_info()
+    target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
+    
+    if correction_thread and correction_thread.is_alive():
+        monitor_event.set()
+        stop_monitoring_thread()
+        stop_thread = False
+        start_monitoring(WINDOW_CLASS, target_monitor)
+    else:
+        stop_thread = False
+        start_monitoring(WINDOW_CLASS, target_monitor)
+    root.destroy()
 
-        def wnd_proc(self, hwnd, msg, wparam, lparam):
-            if msg == win32con.WM_DISPLAYCHANGE:
-                print("[Monitoramento] Mudança na configuração dos monitores detectada!")
-                monitor_event.set()  # Sinaliza para reiniciar o monitoramento
-            return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
-        def register_window(self):
-            class_name = "MonitorEventListener"
-            wnd_class = win32gui.WNDCLASS()
-            wnd_class.lpfnWndProc = self.wnd_proc
-            wnd_class.lpszClassName = class_name
-            wnd_class.hInstance = win32api.GetModuleHandle(None)
-            class_atom = win32gui.RegisterClass(wnd_class)
-            self.hwnd = win32gui.CreateWindow(class_atom, "MonitorEventWindow", 0, 0, 0, 0, 0, 0, 0, wnd_class.hInstance, None)
-            win32gui.PumpMessages()  # Mantém a escuta ativa
 
-    # Criar e rodar o hook em uma thread separada
-    monitor_thread = threading.Thread(target=WindowMonitorHook().register_window, daemon=True)
-    monitor_thread.start()
 
 #Main function
 def main():
+    # Inicia a thread que escuta eventos do Windows
+    monitor_thread = threading.Thread(target=lambda: WindowMonitorHook().register_window(), daemon=True)
+    monitor_thread.start()
+
     # Criação do ícone da bandeja e monitoramento
-    monitor_display_changes()
     create_tray_icon()
 
 if __name__ == "__main__":
