@@ -29,6 +29,7 @@ TARGET_MONITOR_KEY = None
 REFRESH_RATE = None
 monitor_event = threading.Event()
 correction_thread = None
+monitor_thread = None
 
 # Ícone da bandeja
 ICON_BASE64 = "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"
@@ -74,12 +75,8 @@ def manage_config(action="load", settings=None):
 
 #Função Para iniciar com o Windows
 def set_windows_startup(task_name="MoveSensorPanel", enable=True):
-    """
-    Ativa ou desativa a inicialização automática do programa com o Windows.
+    #Ativa ou desativa a inicialização automática do programa com o Windows.
 
-    :param task_name: Nome da tarefa no Agendador do Windows.
-    :param enable: Se True, cria a tarefa; se False, remove a tarefa.
-    """
     if enable:
         exe_path = sys.executable  # Caminho do executável (.exe ou .py)
         command = (
@@ -168,15 +165,16 @@ class WindowMonitorHook:
         self.hwnd = None
 
     def wnd_proc(self, hwnd, msg, wparam, lparam):
-        if msg == win32con.WM_DISPLAYCHANGE:
+        if msg == win32con.WM_CLOSE:
+            print("[Monitoramento] Fechando janela invisível de eventos.")
+            win32gui.DestroyWindow(hwnd)
+        elif msg == win32con.WM_DISPLAYCHANGE:
             print("[Monitoramento] Mudança na configuração dos monitores detectada!")
-            monitor_event.set()  # Dispara evento para checar a janela 
-            
-        elif msg == win32con.WM_POWERBROADCAST:
-            if wparam == win32con.PBT_APMRESUMEAUTOMATIC:
-                print("[Monitoramento] Sistema retornou da suspensão!")
-                monitor_event.set()  # Dispara evento para checar a janela 
-            
+            monitor_event.set()
+        elif msg == win32con.WM_POWERBROADCAST and wparam == win32con.PBT_APMRESUMEAUTOMATIC:
+            print("[Monitoramento] Sistema retornou da suspensão!")
+            monitor_event.set()
+    
         return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
     def register_window(self):
@@ -197,6 +195,9 @@ def monitor_and_correct_window(class_name, target_monitor):
         monitors, _, _ = get_monitors_info() # Actualiza os monitores disponiveis
         target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
         
+        if stop_thread:
+            break
+            
         if target_monitor is None:
             print(f"Monitor alvo '{TARGET_MONITOR_KEY}' não encontrado ou indisponível.")
             available_monitors = [monitor for monitor in monitors.values()]
@@ -215,31 +216,28 @@ def monitor_and_correct_window(class_name, target_monitor):
         else:
             print("Janela já se enccontra no Monitor alvo")
 
-def stop_monitoring_thread():
-    global stop_thread
-    stop_thread = True  # Configura a flag de parada
-    correction_thread.join()  # Espera a thread ser finalizada corretamente)
-    print("Thread de monitoramento parada.")
-
+# Inicia a thread que corrige a posição da janela sempre que necessário
 def start_monitoring(class_name, target_monitor):
     global correction_thread
-    # Inicia a thread que corrige a posição da janela sempre que necessário
+
     correction_thread = threading.Thread(target=monitor_and_correct_window, args=(class_name, target_monitor), daemon=True)
     correction_thread.start()
     print("Thread de monitoramento iniciada.")
     monitor_event.set()
 
+def stop_monitoring():
+    global stop_thread
+    stop_thread = True  # Configura a flag de parada
+    monitor_event.set()
+    correction_thread.join()  # Espera a thread ser finalizada corretamente)
+    print("Thread de monitoramento parada.")
 
 """--==Funções GUI==--"""
 
 def create_icon(size=64, use_custom=True):
     """
     Cria um ícone PNG. Se `use_custom=True`, usa a imagem incorporada como Base64.
-    Caso contrário, gera um ícone padrão com um gauge azul.
-
-    :param size: Tamanho do ícone (largura e altura)
     :param use_custom: Se True, usa o ícone incorporado. Se False, gera dinamicamente.
-    :return: Objeto PIL.Image
     """
     if use_custom:
         try:
@@ -339,12 +337,12 @@ def settings_gui():
     win_start_chk = ttk.Checkbutton(root, text="Start with Windows", style ="Switch.TCheckbutton", variable=start_with_windows_var, command=lambda: set_windows_startup(enable=start_with_windows_var.get()))
     win_start_chk.grid(row=2, column=1, padx=5, pady=5, sticky="e")
 
-    save_button = ttk.Button(root, text="Save", command=on_closing)
+    save_button = ttk.Button(root, text="Save & Exit", command=on_closing)
     save_button.grid(row=4, column=1, columnspan=2, pady=20, sticky="nsew")
     
     sv_ttk.use_dark_theme()
 
-    root.protocol("WM_DELETE_WINDOW", on_closing)
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
 
 # Função para criar o ícone da bandeja
@@ -373,9 +371,12 @@ def create_tray_icon():
 
 # Função para encerrar o programa
 def quit_program(icon, item):
-    global stop_thread
-    stop_thread = True  # Sinaliza para a thread parar
+    global monitor_thread
     print("Encerrando o programa...")
+    stop_monitoring()  # Sinaliza para a thread parar
+    if monitor_thread and monitor_thread.is_alive():
+        print("Encerrando monitoramento de eventos do Windows...")
+        win32gui.PostQuitMessage(0)  # Envia mensagem para encerrar o loop PumpMessages
     icon.stop()  # Para o ícone da bandeja corretamente
     print("Programa encerrado.")
 
@@ -384,18 +385,19 @@ def on_closing():
     global stop_thread
     
     manage_config("update")
+        
     config = manage_config("load")
     monitors, _, _ = get_monitors_info()
     target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
     
     if correction_thread and correction_thread.is_alive():
-        monitor_event.set()
-        stop_monitoring_thread()
+        stop_monitoring()
         stop_thread = False
         start_monitoring(WINDOW_CLASS, target_monitor)
     else:
         stop_thread = False
         start_monitoring(WINDOW_CLASS, target_monitor)
+    
     root.destroy()
 
 
