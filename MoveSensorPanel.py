@@ -26,7 +26,7 @@ CONFIG_FILE = "config.json" # Caminho do arquivo de configuração
 stop_thread = False  # Flag para parar o thread de monitoramento
 WINDOW_CLASS = None
 TARGET_MONITOR_KEY = None
-REFRESH_RATE = None
+REFRESH_RATE = 1
 monitor_event = threading.Event()
 correction_thread = None
 monitor_thread = None
@@ -48,7 +48,7 @@ def manage_config(action="load", settings=None):
                 config = json.load(f)
                 WINDOW_CLASS = config.get("window_class", "")
                 TARGET_MONITOR_KEY = config.get("target_monitor_key", "")
-                REFRESH_RATE = config.get("refresh_rate", 3)
+                #REFRESH_RATE = config.get("refresh_rate", 3)
                 start_windows = config.get("start_windows", False)
                 return config
         return {}
@@ -61,14 +61,14 @@ def manage_config(action="load", settings=None):
         WINDOW_CLASS = class_name_entry.get()
         monitor_display = monitor_combobox.get()
         TARGET_MONITOR_KEY = monitor_mapping.get(monitor_display, monitor_display)
-        REFRESH_RATE = int(refresh_rate_entry.get() or 3)
+        #REFRESH_RATE = int(refresh_rate_entry.get() or 3)
         start_windows = start_with_windows_var.get()
         print(f"Nome da Classe: {WINDOW_CLASS}, Monitor: {TARGET_MONITOR_KEY}, Refresh Rate: {REFRESH_RATE} segs")
         
         settings = {
             "window_class": WINDOW_CLASS,
             "target_monitor_key": TARGET_MONITOR_KEY,
-            "refresh_rate": REFRESH_RATE,
+            #"refresh_rate": REFRESH_RATE,
             "start_windows": start_windows
         }
         manage_config("save", settings)
@@ -192,11 +192,11 @@ def monitor_and_correct_window(class_name, target_monitor):
         monitor_event.wait()  # Espera uma mudança nos monitores ou retorno da suspensão
         monitor_event.clear()  # Reseta o evento para aguardar novas mudanças
         
-        monitors, _, _ = get_monitors_info() # Actualiza os monitores disponiveis
-        target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
-        
         if stop_thread:
             break
+        
+        monitors, _, _ = get_monitors_info() # Actualiza os monitores disponiveis
+        target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
             
         if target_monitor is None:
             print(f"Monitor alvo '{TARGET_MONITOR_KEY}' não encontrado ou indisponível.")
@@ -217,7 +217,7 @@ def monitor_and_correct_window(class_name, target_monitor):
             print("Janela já se enccontra no Monitor alvo")
 
 # Inicia a thread que corrige a posição da janela sempre que necessário
-def start_monitoring(class_name, target_monitor):
+def start_correction_thread(class_name, target_monitor):
     global correction_thread
 
     correction_thread = threading.Thread(target=monitor_and_correct_window, args=(class_name, target_monitor), daemon=True)
@@ -225,11 +225,12 @@ def start_monitoring(class_name, target_monitor):
     print("Thread de monitoramento iniciada.")
     monitor_event.set()
 
-def stop_monitoring():
+def stop_correction_thread():
     global stop_thread
     stop_thread = True  # Configura a flag de parada
     monitor_event.set()
     correction_thread.join()  # Espera a thread ser finalizada corretamente)
+    stop_thread = False
     print("Thread de monitoramento parada.")
 
 """--==Funções GUI==--"""
@@ -324,7 +325,7 @@ def settings_gui():
 
     monitor_combobox.grid(row=1, column=1, padx=0, pady=5, sticky="ew")
 
-    refresh_options = [3, 5, 10, 15]
+    """refresh_options = [3, 5, 10, 15]
     refresh_rate_label = ttk.Label(root, text="Refresh Rate (s):").grid(row=2, column=0, padx=10, pady=5, sticky="e")
     refresh_rate_entry = ttk.Combobox(root, values=refresh_options, state="readonly", width=3)
     refresh_saved = config.get("refresh_rate")
@@ -332,10 +333,10 @@ def settings_gui():
         refresh_rate_entry.set(refresh_saved)
     else:
         refresh_rate_entry.current(0)
-    refresh_rate_entry.grid(row=2, column=1, padx=0, pady=5, sticky="w")
+    refresh_rate_entry.grid(row=2, column=1, padx=0, pady=5, sticky="w")"""
     
     win_start_chk = ttk.Checkbutton(root, text="Start with Windows", style ="Switch.TCheckbutton", variable=start_with_windows_var, command=lambda: set_windows_startup(enable=start_with_windows_var.get()))
-    win_start_chk.grid(row=2, column=1, padx=5, pady=5, sticky="e")
+    win_start_chk.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
     save_button = ttk.Button(root, text="Save & Exit", command=on_closing)
     save_button.grid(row=4, column=1, columnspan=2, pady=20, sticky="nsew")
@@ -363,7 +364,7 @@ def create_tray_icon():
             print(f"Erro: Monitor alvo '{TARGET_MONITOR_KEY}' não encontrado!")
         else:
             print("Movendo janela para o monitor:")
-            start_monitoring(WINDOW_CLASS, target_monitor)
+            start_correction_thread(WINDOW_CLASS, target_monitor)
     else:
         print("Nenhuma configuração encontrada. Abrindo configurações...")
         settings_gui()
@@ -373,10 +374,18 @@ def create_tray_icon():
 def quit_program(icon, item):
     global monitor_thread
     print("Encerrando o programa...")
-    stop_monitoring()  # Sinaliza para a thread parar
+    stop_correction_thread()  # Sinaliza para a thread parar
+    
+    # Envia mensagem para encerrar o loop PumpMessages
     if monitor_thread and monitor_thread.is_alive():
         print("Encerrando monitoramento de eventos do Windows...")
-        win32gui.PostQuitMessage(0)  # Envia mensagem para encerrar o loop PumpMessages
+        win32gui.PostQuitMessage(0)
+    try:
+        if root and root.winfo_exists():  # Verifica se a janela ainda está aberta
+            root.destroy()
+    except Exception as e:
+        print(f"Erro ao destruir a janela: {e}")
+        
     icon.stop()  # Para o ícone da bandeja corretamente
     print("Programa encerrado.")
 
@@ -385,18 +394,16 @@ def on_closing():
     global stop_thread
     
     manage_config("update")
-        
     config = manage_config("load")
-    monitors, _, _ = get_monitors_info()
-    target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
     
-    if correction_thread and correction_thread.is_alive():
-        stop_monitoring()
-        stop_thread = False
-        start_monitoring(WINDOW_CLASS, target_monitor)
+    #monitors, _, _ = get_monitors_info()
+    #target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
+    
+    if correction_thread and correction_thread.is_alive(): # Mata thread e incia novamente com novas configurções
+        stop_correction_thread()
+        start_correction_thread(WINDOW_CLASS, TARGET_MONITOR_KEY)
     else:
-        stop_thread = False
-        start_monitoring(WINDOW_CLASS, target_monitor)
+        start_correction_thread(WINDOW_CLASS, TARGET_MONITOR_KEY)
     
     root.destroy()
 
