@@ -7,5 +7,8 @@ changelog:
 v1.1
 Since the panel can be locked on Aida and it only change position when there is a change on the monitors configuration, there is no need to keep a loop always checking it. instead now it will look for windows events to trigger the program and move the panel.
 
+v1.2
+Added function to lock mouse away from the selected monitor
+
 Feel free to check the code and give it a try
-[Release](https://github.com/Nitinh0/MoveSensorPanel/releases/tag/v1.1)
+[Release](https://github.com/Nitinh0/MoveSensorPanel/releases/tag/v1.2)
