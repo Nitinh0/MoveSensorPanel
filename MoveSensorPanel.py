@@ -20,27 +20,33 @@ import base64
 from io import BytesIO
 import pywinstyles
 
-"""--==VARIAVEIS==--"""
+
+"""--====================VARIAVEIS====================--"""
+
+user32 = ctypes.windll.user32
 
 CONFIG_FILE = "config.json" # Caminho do arquivo de configuração
 stop_thread = False  # Flag para parar o thread de monitoramento
 WINDOW_CLASS = None
 TARGET_MONITOR_KEY = None
-REFRESH_RATE = 1
 monitor_event = threading.Event()
 correction_thread = None
 monitor_thread = None
+lock_mouse = False
+start_windows = False
+cursor_locker = None
+root = None
 
 # Ícone da bandeja
 ICON_BASE64 = "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"
 icon = None
 
 
-"""--==Funções==--"""
+"""--====================Funções====================--"""
 
 # Gestão de Configurações
 def manage_config(action="load", settings=None):
-    global WINDOW_CLASS, TARGET_MONITOR_KEY, REFRESH_RATE, start_windows
+    global WINDOW_CLASS, TARGET_MONITOR_KEY, start_windows, lock_mouse
 
     if action == "load":
         if os.path.exists(CONFIG_FILE):
@@ -48,28 +54,39 @@ def manage_config(action="load", settings=None):
                 config = json.load(f)
                 WINDOW_CLASS = config.get("window_class", "")
                 TARGET_MONITOR_KEY = config.get("target_monitor_key", "")
-                #REFRESH_RATE = config.get("refresh_rate", 3)
                 start_windows = config.get("start_windows", False)
+                lock_mouse = config.get("lock_mouse", False)
                 return config
         return {}
 
     elif action == "save" and settings:
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(settings, f, indent=4)
+        # Carrega o config atual (se existir)
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+        else:
+            config = {}
 
+        # Atualiza apenas as chaves fornecidas
+        config.update(settings)
+
+        # Salva o novo config
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+    
     elif action == "update":
         WINDOW_CLASS = class_name_entry.get()
         monitor_display = monitor_combobox.get()
         TARGET_MONITOR_KEY = monitor_mapping.get(monitor_display, monitor_display)
-        #REFRESH_RATE = int(refresh_rate_entry.get() or 3)
         start_windows = start_with_windows_var.get()
-        print(f"Nome da Classe: {WINDOW_CLASS}, Monitor: {TARGET_MONITOR_KEY}, Refresh Rate: {REFRESH_RATE} segs")
+        lock_mouse = lock_mouse_var.get()
+        print(f"Nome da Classe: {WINDOW_CLASS}, Monitor: {TARGET_MONITOR_KEY}")
         
         settings = {
             "window_class": WINDOW_CLASS,
             "target_monitor_key": TARGET_MONITOR_KEY,
-            #"refresh_rate": REFRESH_RATE,
-            "start_windows": start_windows
+            "start_windows": start_windows,
+            "lock_mouse": lock_mouse
         }
         manage_config("save", settings)
 
@@ -195,6 +212,8 @@ def monitor_and_correct_window(class_name, target_monitor):
         if stop_thread:
             break
         
+        set_cursorlock()
+
         monitors, _, _ = get_monitors_info() # Actualiza os monitores disponiveis
         target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
             
@@ -208,13 +227,14 @@ def monitor_and_correct_window(class_name, target_monitor):
             else:
                 print("Nenhum monitor disponível encontrado!")
                 continue  # Continua aguardando novos eventos
-            
+           
         hwnd = check_window(class_name, target_monitor)
-        if hwnd:
-            time.sleep(REFRESH_RATE)
+        while hwnd:
             move_window(hwnd, target_monitor)
-        else:
-            print("Janela já se enccontra no Monitor alvo")
+            time.sleep(1)
+            hwnd = check_window(class_name, target_monitor)
+            print("Recheck")
+        print("Janela já se enccontra no Monitor alvo")
 
 # Inicia a thread que corrige a posição da janela sempre que necessário
 def start_correction_thread(class_name, target_monitor):
@@ -233,7 +253,101 @@ def stop_correction_thread():
     stop_thread = False
     print("Thread de monitoramento parada.")
 
-"""--==Funções GUI==--"""
+# Ligar/desligar bloqueio do rato
+def set_cursorlock():
+    global cursor_locker
+        
+    if cursor_locker is None:
+        cursor_locker = CursorLocker(locked_monitor_key=TARGET_MONITOR_KEY)
+
+    if lock_mouse:
+        cursor_locker.start_lock()
+    else:
+        cursor_locker.unlock_cursor()
+        cursor_locker = None
+
+class CursorLocker:
+    def __init__(self, locked_monitor_key):
+        self.locked_monitor_key = locked_monitor_key
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def get_cursor_area(self):
+        rect = ctypes.wintypes.RECT()
+        user32.GetClipCursor(ctypes.byref(rect))
+        return (rect.left, rect.top, rect.right, rect.bottom)
+
+    def set_clip_cursor(self, allowed_area):
+        rect_struct = ctypes.wintypes.RECT(*allowed_area)
+        user32.ClipCursor(ctypes.byref(rect_struct))
+        print(f"Rato bloqueado na área: {allowed_area}")
+
+    def unlock_cursor(self):
+        self._stop_event.set()  # Sinaliza que o loop deve parar
+        if self._thread and self._thread.is_alive():
+           print("Aguarde a thread terminar...")
+           self._thread.join()
+        user32.ClipCursor(None)  # Desbloqueia o cursor
+        print("Rato desbloqueado")
+
+    def get_desktop_area(self):
+        monitors, _, _ = get_monitors_info()
+
+        all_x = [info["X"] for info in monitors.values()]
+        all_y = [info["Y"] for info in monitors.values()]
+        all_x_max = [info["X"] + info["Width"] for info in monitors.values()]
+        all_y_max = [info["Y"] + info["Height"] for info in monitors.values()]
+
+        return (min(all_x), min(all_y), max(all_x_max), max(all_y_max))
+
+    def get_allowed_area(self):
+        monitors, _, _ = get_monitors_info()
+
+        if self.locked_monitor_key not in monitors or len(monitors) <= 1:
+            print("Monitor não encontrado ou apenas um monitor disponível.")
+            return
+
+        allowed_x = [info["X"] for key, info in monitors.items() if key != self.locked_monitor_key]
+        allowed_y = [info["Y"] for key, info in monitors.items() if key != self.locked_monitor_key]
+        allowed_x_max = [info["X"] + info["Width"] for key, info in monitors.items() if key != self.locked_monitor_key]
+        allowed_y_max = [info["Y"] + info["Height"] for key, info in monitors.items() if key != self.locked_monitor_key]
+
+        if not allowed_x or not allowed_y or not allowed_x_max or not allowed_y_max:
+            print("Erro: Área válida não encontrada.")
+            return
+
+        return (min(allowed_x), min(allowed_y), max(allowed_x_max), max(allowed_y_max))
+
+    def monitor_loop(self, allowed_area):
+        desktop_area = self.get_desktop_area()
+
+        while not self._stop_event.is_set():  # O loop só continua enquanto o evento não for sinalizado
+           print("Thread monitorando...")  # Verificação para garantir que o loop está ativo
+           current_clip_area = self.get_cursor_area()
+
+           if current_clip_area != desktop_area and current_clip_area != allowed_area:
+             print("Outro programa está a controlar o cursor. Pausando bloqueio...")
+           elif current_clip_area != allowed_area:
+               print("ClipCursor foi desativado! Reaplicando...")
+               self.set_clip_cursor(allowed_area)
+
+           time.sleep(1)
+
+    
+    def start_lock(self):
+        allowed_area = self.get_allowed_area()
+
+        if allowed_area is None:
+            print("Área permitida não encontrada.")
+            return
+
+        self._stop_event.clear()  # Limpa o evento antes de começar o bloqueio
+        self._thread = threading.Thread(target=self.monitor_loop, args=(allowed_area,))
+        self._thread.daemon = True
+        self._thread.start()
+
+
+"""--====================Funções GUI====================--"""
 
 def create_icon(size=64, use_custom=True):
     """
@@ -289,19 +403,26 @@ def apply_theme_to_titlebar(root):
 
 # Janela de Settings        
 def settings_gui():
-    global class_name_entry, monitor_combobox, refresh_rate_entry, monitor_mapping, start_with_windows_var, root
+    global class_name_entry, monitor_combobox, monitor_mapping, start_with_windows_var, lock_mouse_var, root
     
     config = manage_config("load")
+
+    if root and root.winfo_exists():
+        root.deiconify()
+        root.lift()
+        root.focus_force()
+        return
 
     root = tk.Tk()
     apply_theme_to_titlebar(root)
     root.title("Move Sensor Panel")
-    icon_image = create_icon().convert("RGBA")  # Converte para um formato suportado
-    icon_photo = ImageTk.PhotoImage(icon_image)  # Usa ImageTk para criar a imagem
+    icon_image = create_icon().convert("RGBA")
+    icon_photo = ImageTk.PhotoImage(icon_image)
     root.iconphoto(True, icon_photo)
-    root.geometry("445x200")
+    root.geometry("445x215")
     
     start_with_windows_var = tk.BooleanVar(value=config.get("start_windows", False))
+    lock_mouse_var = tk.BooleanVar(value=config.get("lock_mouse", False))
 
     class_name_label = ttk.Label(root, text="Window Class:").grid(row=0, column=0, padx=10, pady=5, sticky="e")
     class_name_entry = ttk.Entry(root, width=30)
@@ -324,21 +445,14 @@ def settings_gui():
         monitor_combobox.set('')
 
     monitor_combobox.grid(row=1, column=1, padx=0, pady=5, sticky="ew")
-
-    """refresh_options = [3, 5, 10, 15]
-    refresh_rate_label = ttk.Label(root, text="Refresh Rate (s):").grid(row=2, column=0, padx=10, pady=5, sticky="e")
-    refresh_rate_entry = ttk.Combobox(root, values=refresh_options, state="readonly", width=3)
-    refresh_saved = config.get("refresh_rate")
-    if refresh_saved in refresh_options:
-        refresh_rate_entry.set(refresh_saved)
-    else:
-        refresh_rate_entry.current(0)
-    refresh_rate_entry.grid(row=2, column=1, padx=0, pady=5, sticky="w")"""
     
     win_start_chk = ttk.Checkbutton(root, text="Start with Windows", style ="Switch.TCheckbutton", variable=start_with_windows_var, command=lambda: set_windows_startup(enable=start_with_windows_var.get()))
     win_start_chk.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
-    save_button = ttk.Button(root, text="Save & Exit", command=on_closing)
+    lock_mouse = ttk.Checkbutton(root, text="Lock Mouse", style ="Switch.TCheckbutton", variable=lock_mouse_var)
+    lock_mouse.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+
+    save_button = ttk.Button(root, text="Save & Exit", command=on_gui_close)
     save_button.grid(row=4, column=1, columnspan=2, pady=20, sticky="nsew")
     
     sv_ttk.use_dark_theme()
@@ -351,10 +465,28 @@ def create_tray_icon():
     global icon
     icon_image = create_icon()
 
-    menu = Menu(MenuItem('Settings', settings_gui), MenuItem('Close', quit_program))
-    icon = Icon("WindowMonitor", icon_image, menu=menu)
-        
     config = manage_config("load")
+
+    def rebuild_menu():
+        # Reconstrói o item com o texto atualizado
+        toggle_item = MenuItem(
+            "Unlock Mouse" if lock_mouse else "Lock Mouse",
+            lambda icon, item: toggle_cursor_lock()
+        )
+        return Menu(
+            toggle_item,
+            MenuItem('Settings', settings_gui),
+            MenuItem('Close', quit_program)
+        )
+
+    def toggle_cursor_lock():
+        global lock_mouse
+        lock_mouse = not lock_mouse
+        set_cursorlock()
+        manage_config("save", {"lock_mouse": lock_mouse})
+        icon.menu = rebuild_menu()  # atualiza o menu
+
+    icon = Icon("WindowMonitor", icon_image, menu=rebuild_menu())
     
     if config:
         print("Configuração encontrada! Iniciando monitoramento...")
@@ -390,15 +522,12 @@ def quit_program(icon, item):
     print("Programa encerrado.")
 
 # Função chamada ao fechar a janela de configurações
-def on_closing():
+def on_gui_close():
     global stop_thread
     
     manage_config("update")
-    config = manage_config("load")
-    
-    #monitors, _, _ = get_monitors_info()
-    #target_monitor = monitors.get(TARGET_MONITOR_KEY, None)
-    
+    manage_config("load")
+      
     if correction_thread and correction_thread.is_alive(): # Mata thread e incia novamente com novas configurções
         stop_correction_thread()
         start_correction_thread(WINDOW_CLASS, TARGET_MONITOR_KEY)
