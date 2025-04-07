@@ -523,7 +523,7 @@ def quit_program(icon, item):
 
 # Função chamada ao fechar a janela de configurações
 def on_gui_close():
-    global stop_thread
+    global stop_thread, root
     
     manage_config("update")
     manage_config("load")
@@ -535,6 +535,7 @@ def on_gui_close():
         start_correction_thread(WINDOW_CLASS, TARGET_MONITOR_KEY)
     
     root.destroy()
+    root = None
 
 
 
